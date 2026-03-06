@@ -4,11 +4,12 @@ Resources:
   MyS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: unique-bucket-name-example
+      BucketName: lmaolmeonguyenkhoinguyenheheheboi 
       Tags:
         - Key: Environment
           Value: Development
 Outputs:
   BucketName:
     Description: The name of the newly created S3 bucket.
-    Value: Ref 'MyS3Bucket'
+    Value:
+      Ref: MyS3Bucket
