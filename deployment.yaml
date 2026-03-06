@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Root CloudFormation template.
 
-template-file-path: CF.yaml
+template-file-path: another_test.yaml
 
 parameters: {}
 
