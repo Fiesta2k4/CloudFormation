@@ -9,8 +9,8 @@ Resources:
       Tags:
         - Key: Name
           Value: MyEC2Instance
-  Outputs:
-    EC2InstanceId:
-      Description: The ID of the newly created EC2 instance.
-      Value:
-        Ref: EC2Instance
+Outputs:
+  EC2InstanceId:
+    Description: The ID of the newly created EC2 instance.
+    Value:
+      Ref: MyFuckingEC2Instance
