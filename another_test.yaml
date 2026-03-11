@@ -106,4 +106,4 @@ Outputs:
   SSHCommand:
     Description: Lenh SSH de ket noi vao instance
     Value:
-      Fn::Sub: 'ssh -i <your-key>.pem ec2-user@${MyFuckingEC2Instance.PublicIp}'
+      Fn::Sub: 'ssh -i ${KeyName}.pem ec2-user@${MyFuckingEC2Instance.PublicIp}'
