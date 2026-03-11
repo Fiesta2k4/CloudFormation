@@ -1,5 +1,6 @@
 template-file-path: another_test.yaml
 
-parameters: {}
+parameters:
+  KeyName: 110326-keypair
 
 tags: {}
