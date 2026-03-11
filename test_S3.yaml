@@ -13,3 +13,10 @@ Outputs:
     Description: The name of the newly created S3 bucket.
     Value:
       Ref: MyS3Bucket
+
+  BucketArn:
+    Description: The ARN of the newly created S3 bucket.
+    Value: 
+      Fn::GetAtt:
+      - MyS3Bucket
+      - Arn
