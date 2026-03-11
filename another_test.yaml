@@ -8,7 +8,7 @@ Resources:
       InstanceType: t2.micro
       Tags:
         - Key: Name
-          Value: MyEC2Instance
+          Value: MyFuckingEC2Instance
 Outputs:
   EC2InstanceId:
     Description: The ID of the newly created EC2 instance.
