@@ -1,11 +1,25 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Root CloudFormation template.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: EC2 instance type for MyFuckingEC2Instance
+  AMIId:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0ac0e4288aa341886
+    Description: Amazon Linux 2 AMI ID for MyFuckingEC2Instance
+  
+
 Resources:
   MyFuckingEC2Instance: #name of the resource
     Type: AWS::EC2::Instance #type of the resource
     Properties:
-      ImageId: ami-0ac0e4288aa341886 #Amazon Linux 2 AMI
-      InstanceType: t2.micro
+      ImageId: 
+        Ref: AMIId
+      InstanceType: 
+        Ref: InstanceType
       Tags:
         - Key: Name
           Value: MyFuckingEC2Instance
@@ -35,3 +49,15 @@ Outputs:
       Fn::GetAtt:
         - MyFuckingEC2Instance
         - PublicIp
+  EC2InstancePrivateIp:
+    Description: Private IP returned by Fn::GetAtt
+    Value: 
+      Fn::GetAtt:
+        - MyFuckingEC2Instance
+        - PrivateIp
+  EC2PublicDnsName:
+    Description: Public DNS name returned by Fn::GetAtt
+    Value: 
+      Fn::GetAtt:
+        - MyFuckingEC2Instance
+        - PublicDnsName
