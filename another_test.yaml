@@ -61,3 +61,15 @@ Outputs:
       Fn::GetAtt:
         - MyFuckingEC2Instance
         - PublicDnsName
+  EC2PrivateDnsName:
+    Description: Private DNS name returned by Fn::GetAtt  
+    Value: 
+      Fn::GetAtt:
+        - MyFuckingEC2Instance
+        - PrivateDnsName
+  EC2AvailabilityZone:
+    Description: Availability Zone returned by Fn::GetAtt
+    Value: 
+      Fn::GetAtt:
+        - MyFuckingEC2Instance
+        - AvailabilityZone
