@@ -42,7 +42,7 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  MyFuckingEC2Instance:
+  MyFuckingEC2InstanceV2:
     Type: AWS::EC2::Instance
     Properties:
       ImageId:
@@ -55,11 +55,13 @@ Resources:
         - Ref: InstanceSecurityGroup
       Tags:
         - Key: Name
-          Value: MyFuckingEC2Instance
+          Value: MyFuckingEC2InstanceV2
       UserData:
         Fn::Base64: |
           #!/bin/bash
           set -euxo pipefail
+
+          exec > >(tee /var/log/user-data-nginx.log | logger -t user-data -s 2>/dev/console) 2>&1
 
           if command -v dnf >/dev/null 2>&1; then
             dnf update -y
@@ -71,49 +73,52 @@ Resources:
             yum install -y nginx
           fi
 
+          rpm -q nginx
+
           systemctl start nginx
           systemctl enable nginx
+          systemctl status nginx --no-pager
 
 Outputs:
   EC2InstanceId:
     Description: Instance ID (Ref)
     Value:
-      Ref: MyFuckingEC2Instance
+      Ref: MyFuckingEC2InstanceV2
   EC2PublicIp:
     Description: Public IP (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2Instance
+        - MyFuckingEC2InstanceV2
         - PublicIp
   EC2PrivateIp:
     Description: Private IP (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2Instance
+        - MyFuckingEC2InstanceV2
         - PrivateIp
   EC2PublicDnsName:
     Description: Public DNS Name (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2Instance
+        - MyFuckingEC2InstanceV2
         - PublicDnsName
   EC2PrivateDnsName:
     Description: Private DNS Name (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2Instance
+        - MyFuckingEC2InstanceV2
         - PrivateDnsName
   EC2AvailabilityZone:
     Description: Availability Zone (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2Instance
+        - MyFuckingEC2InstanceV2
         - AvailabilityZone
   NginxURL:
     Description: URL truy cap Nginx
     Value:
-      Fn::Sub: 'http://${MyFuckingEC2Instance.PublicIp}'
+      Fn::Sub: 'http://${MyFuckingEC2InstanceV2.PublicIp}'
   SSHCommand:
     Description: Lenh SSH de ket noi vao instance
     Value:
-      Fn::Sub: 'ssh -i ${KeyName}.pem ec2-user@${MyFuckingEC2Instance.PublicIp}'
+      Fn::Sub: 'ssh -i ${KeyName}.pem ec2-user@${MyFuckingEC2InstanceV2.PublicIp}'
