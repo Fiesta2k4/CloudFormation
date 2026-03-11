@@ -26,12 +26,12 @@ Resources:
 
 Outputs:
   EC2InstanceId:
-    Description: Something of EC2 idk
+    Description: Instance ID returned by Ref
+    Value:
+      Ref: MyFuckingEC2Instance
+  EC2InstancePublicIp:
+    Description: Public IP returned by Fn::GetAtt
     Value:
       Fn::GetAtt:
-      - MyFuckingEC2Instance
-      - InstanceId
-  EC2InstancePublicIp:
-    Description: Instance Type of EC2
-    Value: 
-      Ref: MyFuckingEC2Instance
+        - MyFuckingEC2Instance
+        - PublicIp
