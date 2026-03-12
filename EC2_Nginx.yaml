@@ -63,6 +63,7 @@ Resources:
 
           exec > >(tee /var/log/user-data-nginx.log | logger -t user-data -s 2>/dev/console) 2>&1
 
+          # 1. Update packages
           if command -v dnf >/dev/null 2>&1; then
             dnf update -y
             dnf install -y nginx
@@ -75,27 +76,64 @@ Resources:
 
           rpm -q nginx
 
-          systemctl start nginx
-          systemctl enable nginx
-          systemctl status nginx --no-pager
-
-          nano /usr/share/nginx/html/index.html <<EOF
-          <html>
-          <head><title>Welcome to Nginx on EC2</title></head>
+          # 2. Overwrite default index.html with custom test page
+          cat > /usr/share/nginx/html/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>EC2 Test Page</title>
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: Arial, sans-serif;
+                background: #232f3e;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+              }
+              .card {
+                background: #fff;
+                border-radius: 10px;
+                padding: 48px 56px;
+                text-align: center;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+                max-width: 480px;
+              }
+              h1 { color: #e47911; font-size: 2rem; margin-bottom: 12px; }
+              p  { color: #555; line-height: 1.6; margin-top: 8px; }
+              .badge {
+                display: inline-block;
+                margin-top: 20px;
+                padding: 6px 18px;
+                background: #e47911;
+                color: #fff;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                letter-spacing: 0.5px;
+              }
+            </style>
+          </head>
           <body>
-          <h1>Hello from Nginx on EC2!</h1> 
-          <p>This page is served by an EC2 instance running Nginx.</p>
+            <div class="card">
+              <h1>Hello from EC2!</h1>
+              <p>Nginx is up and running.</p>
+              <p>This page was created automatically via<br><strong>CloudFormation UserData</strong> bootstrapping.</p>
+              <span class="badge">EC2 Bootstrap Success</span>
+            </div>
           </body>
           </html>
           EOF
 
-          sudo firewall-cmd --permanent --add-service=http
-          sudo firewall-cmd --reload
+          # 3. Enable and start nginx
+          systemctl enable nginx
+          systemctl start nginx
+          systemctl status nginx --no-pager
 
-          sudo systemctl start nginx
-          sudo systemctl enable nginx
 
-          
+
+
 
 
 Outputs:
