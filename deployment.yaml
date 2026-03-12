@@ -2,5 +2,9 @@ template-file-path: EC2_Nginx.yaml
 
 parameters:
   KeyName: 110326-keypair
+  InstanceType: t2.micro
+  AMIId: ami-0ac0e4288aa341886
+  S3BucketName: heheboi-nkn-lmaolmeo
+  S3ObjectKey: sapnu_puas.text
 
 tags: {}
