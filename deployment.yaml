@@ -1,4 +1,4 @@
-template-file-path: another_test.yaml
+template-file-path: EC2_Nginx.yaml
 
 parameters:
   KeyName: 110326-keypair
