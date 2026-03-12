@@ -5,6 +5,6 @@ parameters:
   InstanceType: t2.micro
   AMIId: ami-0ac0e4288aa341886
   S3BucketName: heheboi-nkn-lmaolmeo
-  S3ObjectKey: sapnu_puas.text
+  S3ObjectKey: sapnu_puas.txt
 
 tags: {}
