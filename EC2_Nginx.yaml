@@ -175,7 +175,7 @@ Resources:
             EOF
 
             # 3. Download object from S3 using IAM role (no access key hard-coded)
-            aws s3 cp "s3://${S3BucketName}/${S3ObjectKey}" /usr/share/nginx/html/s3-object.txt
+            aws s3 cp "s3://${S3BucketName}/${S3ObjectKey}" ~/s3-object.txt
 
             # 4. Enable and start nginx
             systemctl enable nginx
