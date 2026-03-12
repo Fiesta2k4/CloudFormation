@@ -83,7 +83,7 @@ Resources:
     Properties:
       Path: /
       Roles:
-        Ref: MyEC2Role
+        - Ref: MyEC2Role
       
 
   MyFuckingEC2InstanceV2:
