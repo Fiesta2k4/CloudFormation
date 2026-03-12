@@ -86,7 +86,7 @@ Resources:
         - Ref: MyEC2Role
       
 
-  MyFuckingEC2InstanceV2:
+  MyFuckingEC2InstanceV3:
     Type: AWS::EC2::Instance
     Properties:
       ImageId:
@@ -191,42 +191,42 @@ Outputs:
   EC2InstanceId:
     Description: Instance ID (Ref)
     Value:
-      Ref: MyFuckingEC2InstanceV2
+      Ref: MyFuckingEC2InstanceV3
   EC2PublicIp:
     Description: Public IP (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2InstanceV2
+        - MyFuckingEC2InstanceV3
         - PublicIp
   EC2PrivateIp:
     Description: Private IP (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2InstanceV2
+        - MyFuckingEC2InstanceV3
         - PrivateIp
   EC2PublicDnsName:
     Description: Public DNS Name (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2InstanceV2
+        - MyFuckingEC2InstanceV3
         - PublicDnsName
   EC2PrivateDnsName:
     Description: Private DNS Name (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2InstanceV2
+        - MyFuckingEC2InstanceV3
         - PrivateDnsName
   EC2AvailabilityZone:
     Description: Availability Zone (Fn::GetAtt)
     Value:
       Fn::GetAtt:
-        - MyFuckingEC2InstanceV2
+        - MyFuckingEC2InstanceV3
         - AvailabilityZone
   NginxURL:
     Description: URL truy cap Nginx
     Value:
-      Fn::Sub: 'http://${MyFuckingEC2InstanceV2.PublicIp}'
+      Fn::Sub: 'http://${MyFuckingEC2InstanceV3.PublicIp}'
   SSHCommand:
     Description: Lenh SSH de ket noi vao instance
     Value:
-      Fn::Sub: 'ssh -i ${KeyName}.pem ec2-user@${MyFuckingEC2InstanceV2.PublicIp}'
+      Fn::Sub: 'ssh -i ${KeyName}.pem ec2-user@${MyFuckingEC2InstanceV3.PublicIp}'
