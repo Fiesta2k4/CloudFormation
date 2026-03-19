@@ -99,7 +99,7 @@ Resources:
         - Ref: InstanceSecurityGroup
       Tags:
         - Key: Name
-          Value: MyFuckingEC2InstanceV2
+          Value: MyFuckingEC2InstanceV3
       IamInstanceProfile: 
         Ref: RootInstanceProfile
 
@@ -174,8 +174,8 @@ Resources:
             </html>
             EOF
 
-            # 3. Download object from S3 using IAM role (no access key hard-coded)
-            aws s3 cp "s3://${S3BucketName}/${S3ObjectKey}" ~/s3-object.txt
+            # 3. Download object from S3 using IAM role 
+            aws s3 cp "s3://${S3BucketName}/${S3ObjectKey}" ~/home/ec2-user/s3-object.txt
 
             # 4. Enable and start nginx
             systemctl enable nginx
