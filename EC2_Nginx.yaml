@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: "Mini project: CloudFormation creates S3, IAM role, EC2; EC2 downloads and serves file from S3 via Nginx."
+Description: "EC2 + Nginx serving frontend artifacts pulled from S3."
 
 Parameters:
   InstanceType:
@@ -29,18 +29,22 @@ Parameters:
 
   S3BucketName:
     Type: String
-    Default: ''
-    Description: Tham so cu de tuong thich stack update, hien khong duoc su dung
+    Description: Ten S3 bucket chua artifact web (HTML/CSS/JS/build output)
+
+  S3ObjectKey:
+    Type: String
+    Default: website/index.html
+    Description: Object key de fallback pull 1 file index.html
+
+  S3AppPrefix:
+    Type: String
+    Default: website/
+    Description: Prefix chua frontend artifact; de trong neu chi pull 1 file
 
   VpcId:
     Type: String
     Default: ''
     Description: VPC ID tuy chon cho Security Group; de trong de dung default VPC
-
-  S3ObjectKey:
-    Type: String
-    Default: website/index.html
-    Description: Object key trong S3 bucket se duoc EC2 tai ve
 
 Conditions:
   HasVpcId:
@@ -48,170 +52,13 @@ Conditions:
       - Fn::Equals:
           - Ref: VpcId
           - ''
+  HasAppPrefix:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: S3AppPrefix
+          - ''
 
 Resources:
-  ProjectBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-
-  BucketSeederRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Path: /
-      Policies:
-        - PolicyName: AllowLogsAndPutObject
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource:
-                  Fn::Sub: arn:${AWS::Partition}:s3:::${ProjectBucket}/*
-
-  BucketSeederFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Runtime: python3.11
-      Handler: index.handler
-      Role:
-        Fn::GetAtt:
-          - BucketSeederRole
-          - Arn
-      Timeout: 60
-      Code:
-        ZipFile: |
-          import json
-          import logging
-          import urllib.request
-          import boto3
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-
-          def send_response(event, context, status, data=None, reason=None):
-              response_url = event["ResponseURL"]
-              body = {
-                  "Status": status,
-                  "Reason": reason or f"See CloudWatch Log Stream: {context.log_stream_name}",
-                  "PhysicalResourceId": event.get("PhysicalResourceId", context.log_stream_name),
-                  "StackId": event["StackId"],
-                  "RequestId": event["RequestId"],
-                  "LogicalResourceId": event["LogicalResourceId"],
-                  "Data": data or {},
-              }
-              req = urllib.request.Request(
-                  response_url,
-                  data=json.dumps(body).encode("utf-8"),
-                  method="PUT",
-                  headers={"Content-Type": ""},
-              )
-              with urllib.request.urlopen(req) as resp:
-                  logger.info("CloudFormation response status: %s", resp.status)
-
-
-          def handler(event, context):
-              logger.info("Event: %s", json.dumps(event))
-              s3 = boto3.client("s3")
-              props = event.get("ResourceProperties", {})
-              bucket = props["BucketName"]
-              key = props["ObjectKey"]
-              content = props["Content"]
-
-              try:
-                  request_type = event["RequestType"]
-                  if request_type in ["Create", "Update"]:
-                      s3.put_object(
-                          Bucket=bucket,
-                          Key=key,
-                          Body=content.encode("utf-8"),
-                          ContentType="text/html",
-                      )
-                      send_response(event, context, "SUCCESS", {"Bucket": bucket, "Key": key})
-                  elif request_type == "Delete":
-                      try:
-                          s3.delete_object(Bucket=bucket, Key=key)
-                      except Exception:
-                          pass
-                      send_response(event, context, "SUCCESS", {"Bucket": bucket, "Key": key})
-                  else:
-                      send_response(event, context, "SUCCESS", {"Bucket": bucket, "Key": key})
-              except Exception as exc:
-                  logger.exception("Seeder failed")
-                  send_response(event, context, "FAILED", reason=str(exc))
-
-  SeedS3Object:
-    Type: Custom::SeedS3Object
-    Properties:
-      ServiceToken:
-        Fn::GetAtt:
-          - BucketSeederFunction
-          - Arn
-      BucketName:
-        Ref: ProjectBucket
-      ObjectKey:
-        Ref: S3ObjectKey
-      Content: |
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>S3 + EC2 + Nginx</title>
-          <style>
-            body {
-              margin: 0;
-              min-height: 100vh;
-              display: grid;
-              place-items: center;
-              background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0b3b2e 100%);
-              font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
-              color: #e2e8f0;
-            }
-            .card {
-              width: min(720px, 90vw);
-              background: rgba(15, 23, 42, 0.8);
-              border: 1px solid rgba(148, 163, 184, 0.25);
-              border-radius: 16px;
-              padding: 28px;
-              box-shadow: 0 16px 60px rgba(2, 6, 23, 0.35);
-            }
-            h1 { margin-top: 0; color: #22d3ee; }
-            p { line-height: 1.6; color: #cbd5e1; }
-            code {
-              background: rgba(30, 41, 59, 0.85);
-              border: 1px solid rgba(100, 116, 139, 0.35);
-              border-radius: 8px;
-              padding: 2px 8px;
-            }
-          </style>
-        </head>
-        <body>
-          <section class="card">
-            <h1>CloudFormation Mini Project Running</h1>
-            <p>This HTML file was seeded to S3 by CloudFormation custom resource.</p>
-            <p>EC2 downloaded it with IAM role credentials and Nginx is serving it now.</p>
-            <p>Path on EC2: <code>/usr/share/nginx/html/index.html</code></p>
-          </section>
-        </body>
-        </html>
-
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -242,10 +89,10 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      Description: Role cho phep EC2 doc file tu S3
+      Description: Role cho phep EC2 doc artifact web tu S3
       Path: /
       Policies:
-        - PolicyName: EC2ReadFromS3Only
+        - PolicyName: EC2ReadFrontendArtifactFromS3
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -253,12 +100,12 @@ Resources:
                 Action:
                   - s3:GetObject
                 Resource:
-                  Fn::Sub: arn:${AWS::Partition}:s3:::${ProjectBucket}/*
+                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}/*
               - Effect: Allow
                 Action:
                   - s3:ListBucket
                 Resource:
-                  Fn::Sub: arn:${AWS::Partition}:s3:::${ProjectBucket}
+                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}
 
   RootInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -269,8 +116,6 @@ Resources:
 
   MyFuckingEC2InstanceV3:
     Type: AWS::EC2::Instance
-    DependsOn:
-      - SeedS3Object
     Properties:
       ImageId:
         Ref: AMIId
@@ -303,21 +148,34 @@ Resources:
               yum install -y nginx awscli
             fi
 
-            echo "Attempting to download seeded object from S3..."
+            SRC_BUCKET="${S3BucketName}"
+            APP_PREFIX="${S3AppPrefix}"
+            FALLBACK_KEY="${S3ObjectKey}"
+
+            echo "Pulling frontend artifact from S3 bucket $SRC_BUCKET"
+
             for i in 1 2 3 4 5; do
-              if aws s3 cp "s3://${ProjectBucket}/${S3ObjectKey}" /usr/share/nginx/html/index.html; then
-                echo "S3 download successful"
-                break
+              if [ -n "$APP_PREFIX" ]; then
+                if aws s3 sync "s3://$SRC_BUCKET/$APP_PREFIX" /usr/share/nginx/html --delete; then
+                  echo "S3 sync successful"
+                  break
+                fi
+              else
+                if aws s3 cp "s3://$SRC_BUCKET/$FALLBACK_KEY" /usr/share/nginx/html/index.html; then
+                  echo "S3 copy successful"
+                  break
+                fi
               fi
+
               if [ $i -lt 5 ]; then
                 echo "Retry $i/5 - waiting 10s..."
                 sleep 10
               fi
             done
 
-            cp /usr/share/nginx/html/index.html /home/ec2-user/s3-object.html
-            chown ec2-user:ec2-user /home/ec2-user/s3-object.html
-            ls -l /home/ec2-user/s3-object.html
+            cp /usr/share/nginx/html/index.html /home/ec2-user/s3-object.html || true
+            chown ec2-user:ec2-user /home/ec2-user/s3-object.html || true
+            ls -l /home/ec2-user/s3-object.html || true
 
             systemctl enable nginx
             systemctl restart nginx
@@ -325,14 +183,17 @@ Resources:
 
 Outputs:
   S3BucketName:
-    Description: Auto-generated S3 bucket name
+    Description: Source S3 bucket name for frontend artifacts
     Value:
-      Ref: ProjectBucket
+      Ref: S3BucketName
 
-  S3ObjectUri:
-    Description: Seeded object URI
+  ArtifactLocation:
+    Description: Artifact location in S3
     Value:
-      Fn::Sub: s3://${ProjectBucket}/${S3ObjectKey}
+      Fn::If:
+        - HasAppPrefix
+        - Fn::Sub: s3://${S3BucketName}/${S3AppPrefix}
+        - Fn::Sub: s3://${S3BucketName}/${S3ObjectKey}
 
   EC2InstanceId:
     Description: Instance ID

@@ -4,7 +4,8 @@ parameters:
   KeyName: 110326-keypair
   InstanceType: t2.micro
   AMIId: ami-0ac0e4288aa341886
-  S3BucketName: heheboi-nkn-lmaolmeo
-  S3ObjectKey: sapnu_puas.txt
+  S3BucketName: cloudformationv2-projectbucket-wxbzxcuixp55
+  S3ObjectKey: index.html
+  S3AppPrefix: website/
 
 tags: {}
