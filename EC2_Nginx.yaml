@@ -30,7 +30,7 @@ Parameters:
   S3BucketName:
     Type: String
     Default: ''
-    Description: Ten S3 bucket tuy chon; de trong de CloudFormation tu sinh ten bucket unique
+    Description: Tham so cu de tuong thich stack update, hien khong duoc su dung
 
   VpcId:
     Type: String
@@ -43,11 +43,6 @@ Parameters:
     Description: Object key trong S3 bucket se duoc EC2 tai ve
 
 Conditions:
-  HasCustomBucketName:
-    Fn::Not:
-      - Fn::Equals:
-          - Ref: S3BucketName
-          - ''
   HasVpcId:
     Fn::Not:
       - Fn::Equals:
@@ -59,12 +54,6 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
-    Properties:
-      BucketName:
-        Fn::If:
-          - HasCustomBucketName
-          - Ref: S3BucketName
-          - Ref: AWS::NoValue
 
   BucketSeederRole:
     Type: AWS::IAM::Role
