@@ -70,7 +70,7 @@ Resources:
                 Action:
                   - s3:GetObject
                 Resource:
-                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}/*
+                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}/
               - Effect: Allow
                 Action:
                   - s3:ListBucket
@@ -174,35 +174,21 @@ Resources:
             </html>
             EOF
 
-            # 3. Download object from S3 using IAM role with retry
-            S3_BUCKET="${S3BucketName}"
-            S3_KEY="${S3ObjectKey}"
-            TARGET_FILE="/home/ec2-user/s3-object.txt"
-            MAX_RETRIES=10
-            RETRY_DELAY=5
-
-            echo "[$$(date '+%Y-%m-%d %H:%M:%S')] Starting S3 download from s3://$$S3_BUCKET/$$S3_KEY to $$TARGET_FILE"
-
-            RETRY_COUNT=0
-            while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-              if aws s3 cp "s3://$$S3_BUCKET/$$S3_KEY" "$$TARGET_FILE" --region ap-southeast-1; then
-                echo "[$$(date '+%Y-%m-%d %H:%M:%S')] S3 download SUCCESS on attempt $$((RETRY_COUNT+1))"
-                chown ec2-user:ec2-user "$$TARGET_FILE"
-                ls -lh "$$TARGET_FILE"
+            # 3. Download object from S3 with retry logic
+            echo "Attempting to download from S3..."
+            for i in {1..5}; do
+              if aws s3 cp "s3://$${S3BucketName}/$${S3ObjectKey}" /home/ec2-user/s3-object.txt; then
+                echo "S3 download successful"
                 break
-              else
-                RETRY_COUNT=$$((RETRY_COUNT+1))
-                echo "[$$(date '+%Y-%m-%d %H:%M:%S')] S3 download FAILED attempt $$RETRY_COUNT/$$MAX_RETRIES, retrying in $$RETRY_DELAY s..."
-                if [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; then
-                  sleep $$RETRY_DELAY
-                fi
+              fi
+              if [ $i -lt 5 ]; then
+                echo "Retry $i/5 - waiting 10s..."
+                sleep 10s
               fi
             done
 
-            if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
-              echo "[$$(date '+%Y-%m-%d %H:%M:%S')] S3 download FAILED after $$MAX_RETRIES attempts"
-              exit 1
-            fi
+            chown ec2-user:ec2-user /home/ec2-user/s3-object.txt
+            ls -l /home/ec2-user/s3-object.txt
 
             # 4. Enable and start nginx
             systemctl enable nginx
