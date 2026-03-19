@@ -178,6 +178,8 @@ Resources:
             aws s3 cp "s3://${S3BucketName}/${S3ObjectKey}" /home/ec2-user/s3-object.txt
             chown ec2-user:ec2-user /home/ec2-user/s3-object.txt
 
+            ls -l /home/ec2-user/s3-object.txt
+
             # 4. Enable and start nginx
             systemctl enable nginx
             systemctl start nginx
