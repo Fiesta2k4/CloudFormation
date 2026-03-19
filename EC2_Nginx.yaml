@@ -29,12 +29,30 @@ Parameters:
 
   S3BucketName:
     Type: String
-    Description: Ten S3 bucket cho mini-project (phai unique toan cuc)
+    Default: ''
+    Description: Ten S3 bucket tuy chon; de trong de CloudFormation tu sinh ten bucket unique
+
+  VpcId:
+    Type: String
+    Default: ''
+    Description: VPC ID tuy chon cho Security Group; de trong de dung default VPC
 
   S3ObjectKey:
     Type: String
     Default: website/index.html
     Description: Object key trong S3 bucket se duoc EC2 tai ve
+
+Conditions:
+  HasCustomBucketName:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: S3BucketName
+          - ''
+  HasVpcId:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: VpcId
+          - ''
 
 Resources:
   ProjectBucket:
@@ -43,7 +61,10 @@ Resources:
     UpdateReplacePolicy: Delete
     Properties:
       BucketName:
-        Ref: S3BucketName
+        Fn::If:
+          - HasCustomBucketName
+          - Ref: S3BucketName
+          - Ref: AWS::NoValue
 
   BucketSeederRole:
     Type: AWS::IAM::Role
@@ -206,7 +227,11 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow SSH and HTTP
-      VpcId: vpc-0e2deb57930ba1d89
+      VpcId:
+        Fn::If:
+          - HasVpcId
+          - Ref: VpcId
+          - Ref: AWS::NoValue
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
