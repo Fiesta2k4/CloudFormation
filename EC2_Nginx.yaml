@@ -27,6 +27,10 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: Phai la CIDR hop le
 
+  S3BucketName:
+    Type: String
+    Description: Ten S3 bucket cho mini-project (phai unique toan cuc)
+
   S3ObjectKey:
     Type: String
     Default: website/index.html
@@ -37,6 +41,9 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
+    Properties:
+      BucketName:
+        Ref: S3BucketName
 
   BucketSeederRole:
     Type: AWS::IAM::Role
