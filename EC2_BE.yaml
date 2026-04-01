@@ -73,6 +73,7 @@ Parameters:
 
   DBMasterUserPassword:
     Type: String
+    Default: password
     NoEcho: true
     MinLength: 8
     MaxLength: 41
@@ -143,6 +144,11 @@ Resources:
                   - s3:ListBucket
                 Resource:
                   Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  Fn::Sub: arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBStaticCredentialsSecret}*
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -173,6 +179,7 @@ Resources:
     Properties:
       Engine: mysql
       DBInstanceClass: db.t3.micro
+      ApplyImmediately: true
       AllocatedStorage:
         Ref: DBAllocatedStorage
       StorageType: gp3
@@ -306,12 +313,15 @@ Resources:
             cd /opt/demo-api
             retry 3 npm ci --omit=dev || retry 3 npm install --omit=dev
 
+            # Fetch actual password from Secrets Manager
+            DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id ${DBStaticCredentialsSecret} --query 'SecretString' --output text | jq -r '.password')
+
             cat > /opt/demo-api/.env <<EOF
             PORT=3000
             DB_HOST=${MySQLDB.Endpoint.Address}
             DB_NAME=${DBName}
             DB_USER=${DBMasterUsername}
-            DB_PASSWORD={{resolve:secretsmanager:${DBStaticCredentialsSecret}:SecretString:password}}
+            DB_PASSWORD=$DB_PASSWORD
             EOF
 
             cat > /etc/systemd/system/demo-api.service <<'SERVICE'
@@ -349,6 +359,16 @@ Outputs:
       Fn::GetAtt:
         - AppEC2
         - PublicIp
+  
+  EC2KeyPair:
+    Description: EC2 Key Pair Name
+    Value:
+      Ref: KeyName
+
+  EC2SSHCommand:
+    Description: Example SSH command to connect to EC2
+    Value:
+      Fn::Sub: ssh -i ${KeyName}.pem ec2-user@${AppEC2.PublicIp}
 
   AppURL:
     Description: Frontend URL served by Nginx
