@@ -1,20 +1,18 @@
-template-file-path: EC2_BE.yaml
-
+template-file-path: template.yaml
 parameters:
-  KeyName: 110326-keypair
-  InstanceType: t3.micro
   AMIId: ami-0ac0e4288aa341886
-  VpcId: vpc-0e2deb57930ba1d89
-  PublicSubnetId: subnet-0233c513ba69e7b41
-  DBSubnetId1: subnet-0e306c89fc1d898c2
-  DBSubnetId2: subnet-07c431a097e7ed2aa
   SSHLocation: 0.0.0.0/0
-  S3BucketName: cloudformationv2-projectbucket-wxbzxcuixp55
-  S3AppPrefix: website/
-  S3BackendObjectKey: backend/demo-api.zip
-  DBName: appdb
+  DBMasterUserPassword: '****'
   DBMasterUsername: admin
-  DBMasterUserPassword: password
-  DBAllocatedStorage: 20
-
+  S3AppPrefix: website/
+  KeyName: 110326-keypair
+  S3BackendObjectKey: backend/demo-api.zip
+  VpcId: vpc-0e2deb57930ba1d89
+  DBAllocatedStorage: '20'
+  PublicSubnetId: subnet-0233c513ba69e7b41
+  DBSubnetId2: subnet-07c431a097e7ed2aa
+  DBName: appdb
+  S3BucketName: cloudformationv2-projectbucket-wxbzxcuixp55
+  InstanceType: t2.micro
+  DBSubnetId1: subnet-0e306c89fc1d898c2
 tags: {}
