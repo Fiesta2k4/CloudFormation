@@ -6,7 +6,7 @@ parameters:
   AMIId: ami-0ac0e4288aa341886
   VpcId: vpc-0e2deb57930ba1d89
   PublicSubnetId1: subnet-0233c513ba69e7b41
-  PublicSubnetId2: subnet-09529cc6053e2aca9
+  PublicSubnetId2: subnet-07c431a097e7ed2aa
   PrivateSubnetId: subnet-03194839ed933b89a
   DBSubnetId1: subnet-0e306c89fc1d898c2
   DBSubnetId2: subnet-07c431a097e7ed2aa
