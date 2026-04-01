@@ -1,0 +1,22 @@
+template-file-path: EC2_FE_BE_ALB.yaml
+
+parameters:
+  KeyName: 110326-keypair
+  InstanceType: t3.micro
+  AMIId: ami-0ac0e4288aa341886
+  VpcId: vpc-0e2deb57930ba1d89
+  PublicSubnetId1: subnet-0233c513ba69e7b41
+  PublicSubnetId2: subnet-0233c513ba69e7b41
+  PrivateSubnetId: subnet-0e306c89fc1d898c2
+  DBSubnetId1: subnet-0e306c89fc1d898c2
+  DBSubnetId2: subnet-07c431a097e7ed2aa
+  SSHLocation: 0.0.0.0/0
+  S3BucketName: cloudformationv2-projectbucket-wxbzxcuixp55
+  S3FEPrefix: website/
+  S3BackendObjectKey: backend/demo-api.zip
+  DBName: appdb
+  DBMasterUsername: admin
+  DBMasterUserPassword: password
+  DBAllocatedStorage: 20
+
+tags: {}
