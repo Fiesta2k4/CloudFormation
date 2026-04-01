@@ -300,6 +300,10 @@ Resources:
       UnhealthyThresholdCount: 2
       Matcher:
         HttpCode: 200-399
+      Targets:
+        - Id:
+            Ref: EC2FrontendInstance
+          Port: 80
       Tags:
         - Key: Name
           Value: tg-frontend
@@ -323,6 +327,10 @@ Resources:
       UnhealthyThresholdCount: 2
       Matcher:
         HttpCode: 200
+      Targets:
+        - Id:
+            Ref: EC2BackendInstance
+          Port: 3000
       Tags:
         - Key: Name
           Value: tg-backend
@@ -426,7 +434,6 @@ Resources:
 
   EC2BackendInstance:
     Type: AWS::EC2::Instance
-    DependsOn: MySQLDB
     Properties:
       ImageId:
         Ref: AMIId
@@ -542,26 +549,6 @@ Resources:
             systemctl restart demo-api
 
             echo "BE bootstrap complete"
-
-  # ===== TARGET GROUP ATTACHMENT =====
-
-  FETargetGroupAttachment:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroupAttachment
-    Properties:
-      TargetGroupArn:
-        Ref: TGFrontend
-      TargetId:
-        Ref: EC2FrontendInstance
-      Port: 80
-
-  BETargetGroupAttachment:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroupAttachment
-    Properties:
-      TargetGroupArn:
-        Ref: TGBackend
-      TargetId:
-        Ref: EC2BackendInstance
-      Port: 3000
 
 Outputs:
   ALBDNSName:
