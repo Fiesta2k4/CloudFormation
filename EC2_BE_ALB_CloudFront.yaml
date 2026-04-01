@@ -1,0 +1,486 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "CloudFront + S3 (FE static) + ALB + EC2-BE + RDS MySQL"
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key Pair name for SSH
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - t3.small
+    Description: EC2 backend instance type
+
+  AMIId:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0ac0e4288aa341886
+    Description: Amazon Linux AMI ID (ap-southeast-1)
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for backend and database
+
+  PublicSubnetId1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet for ALB (AZ 1)
+
+  PublicSubnetId2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet for ALB (AZ 2, different AZ)
+
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet for EC2 backend
+
+  DBSubnetId1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet for RDS (AZ 1)
+
+  DBSubnetId2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet for RDS (AZ 2)
+
+  SSHLocation:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed for SSH
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+
+  S3BucketName:
+    Type: String
+    Description: Existing S3 bucket for FE static files and BE artifact
+
+  S3OriginPath:
+    Type: String
+    Default: /website
+    Description: CloudFront origin path for FE files in S3 (example /website)
+
+  S3BackendObjectKey:
+    Type: String
+    Default: backend/demo-api.zip
+    Description: S3 object key for backend ZIP artifact
+
+  DBName:
+    Type: String
+    Default: appdb
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  DBMasterUsername:
+    Type: String
+    Default: admin
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  DBMasterUserPassword:
+    Type: String
+    Default: password
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '[a-zA-Z0-9!@#\$%\^&\*\(\)_\+\-=]*'
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 100
+
+Resources:
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP from internet to ALB
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  BESecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow backend traffic from ALB and SSH from admin CIDR
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:
+            Ref: SSHLocation
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId:
+            Ref: ALBSecurityGroup
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow MySQL only from backend EC2
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId:
+            Ref: BESecurityGroup
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: ReadArtifactsAndSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  Fn::Sub: arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBStaticCredentialsSecret}*
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: EC2Role
+
+  DBStaticCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Stable DB credentials for RDS and backend app.
+      SecretString:
+        Fn::Sub: '{"username":"${DBMasterUsername}","password":"${DBMasterUserPassword}"}'
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS MySQL
+      SubnetIds:
+        - Ref: DBSubnetId1
+        - Ref: DBSubnetId2
+
+  MySQLDB:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: mysql
+      DBInstanceClass: db.t3.micro
+      ApplyImmediately: true
+      AllocatedStorage:
+        Ref: DBAllocatedStorage
+      StorageType: gp3
+      MasterUsername:
+        Ref: DBMasterUsername
+      MasterUserPassword:
+        Fn::Sub: '{{resolve:secretsmanager:${DBStaticCredentialsSecret}:SecretString:password}}'
+      DBName:
+        Ref: DBName
+      PubliclyAccessible: false
+      MultiAZ: false
+      DeletionProtection: false
+      BackupRetentionPeriod: 0
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      VPCSecurityGroups:
+        - Ref: RDSSecurityGroup
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      Subnets:
+        - Ref: PublicSubnetId1
+        - Ref: PublicSubnetId2
+      SecurityGroups:
+        - Ref: ALBSecurityGroup
+
+  TGBackend:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 3000
+      Protocol: HTTP
+      VpcId:
+        Ref: VpcId
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /api/health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+      Targets:
+        - Id:
+            Ref: EC2BackendInstance
+          Port: 3000
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TGBackend
+
+  EC2BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: AMIId
+      InstanceType:
+        Ref: InstanceType
+      KeyName:
+        Ref: KeyName
+      IamInstanceProfile:
+        Ref: EC2InstanceProfile
+      SubnetId:
+        Ref: PrivateSubnetId
+      SecurityGroupIds:
+        - Ref: BESecurityGroup
+      Tags:
+        - Key: Name
+          Value: ec2-backend
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash
+            set -euxo pipefail
+
+            retry() {
+              local retries="$1"
+              shift
+              local n=1
+              until "$@"; do
+                if [ "$n" -ge "$retries" ]; then
+                  return 1
+                fi
+                n=$((n + 1))
+                sleep 10
+              done
+            }
+
+            exec > >(tee /var/log/user-data-be.log | logger -t user-data-be -s 2>/dev/console) 2>&1
+
+            if command -v dnf >/dev/null 2>&1; then
+              dnf update -y
+              dnf install -y nodejs awscli unzip
+            else
+              yum update -y
+              amazon-linux-extras enable nodejs18 || true
+              yum install -y nodejs awscli unzip
+            fi
+
+            mkdir -p /opt/demo-api
+            rm -rf /opt/demo-api/*
+
+            retry 5 aws s3 cp "s3://${S3BucketName}/${S3BackendObjectKey}" /tmp/demo-api.zip
+            unzip -o /tmp/demo-api.zip -d /opt/demo-api
+            rm -f /tmp/demo-api.zip
+
+            if [ ! -f /opt/demo-api/server.js ] || [ ! -f /opt/demo-api/package.json ] || [ ! -f /opt/demo-api/init-db.js ]; then
+              echo "Backend artifact is invalid. Required files are missing."
+              exit 1
+            fi
+
+            cd /opt/demo-api
+            retry 3 npm ci --omit=dev || retry 3 npm install --omit=dev
+
+            cat > /opt/demo-api/.env <<EOF
+            PORT=3000
+            DB_HOST=${MySQLDB.Endpoint.Address}
+            DB_USER=${DBMasterUsername}
+            DB_PASSWORD={{resolve:secretsmanager:${DBStaticCredentialsSecret}:SecretString:password}}
+            DB_NAME=${DBName}
+            DB_PORT=3306
+            EOF
+
+            cat > /etc/systemd/system/demo-api.service <<'SERVICE'
+            [Unit]
+            Description=Demo Node API Backend
+            After=network.target
+
+            [Service]
+            WorkingDirectory=/opt/demo-api
+            EnvironmentFile=/opt/demo-api/.env
+            Type=simple
+            ExecStartPre=/bin/sh -c 'for i in 1 2 3 4 5; do node /opt/demo-api/init-db.js && exit 0; sleep 15; done; exit 1'
+            ExecStart=/usr/bin/node /opt/demo-api/server.js
+            Restart=always
+            RestartSec=5
+            User=root
+            StandardOutput=append:/var/log/demo-api/app.log
+            StandardError=append:/var/log/demo-api/app.log
+
+            [Install]
+            WantedBy=multi-user.target
+            SERVICE
+
+            mkdir -p /var/log/demo-api
+            touch /var/log/demo-api/app.log
+
+            systemctl daemon-reload
+            systemctl enable demo-api
+            systemctl restart demo-api
+
+  S3OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: s3-oac-fe-static
+        Description: OAC for S3 static FE origin
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: S3FEOrigin
+            DomainName:
+              Fn::Sub: ${S3BucketName}.s3.${AWS::Region}.amazonaws.com
+            OriginPath:
+              Ref: S3OriginPath
+            S3OriginConfig: {}
+            OriginAccessControlId:
+              Fn::GetAtt:
+                - S3OriginAccessControl
+                - Id
+          - Id: ALBApiOrigin
+            DomainName:
+              Fn::GetAtt:
+                - ApplicationLoadBalancer
+                - DNSName
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3FEOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 300
+          MaxTTL: 86400
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: ALBApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - '*'
+              Cookies:
+                Forward: all
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  S3BucketPolicyForCloudFront:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action:
+              - s3:GetObject
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:s3:::${S3BucketName}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn:
+                  Fn::Sub: arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+Outputs:
+  CloudFrontDomainName:
+    Description: CloudFront URL for FE and API
+    Value:
+      Fn::GetAtt:
+        - CloudFrontDistribution
+        - DomainName
+
+  ALBDNSName:
+    Description: ALB DNS for backend debugging
+    Value:
+      Fn::GetAtt:
+        - ApplicationLoadBalancer
+        - DNSName
+
+  RDSEndpoint:
+    Description: RDS endpoint
+    Value:
+      Fn::GetAtt:
+        - MySQLDB
+        - Endpoint.Address
